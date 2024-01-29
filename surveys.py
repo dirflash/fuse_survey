@@ -5,6 +5,8 @@ import aiohttp
 from cards import survey_card  # noqa: F401
 from utils import preferences as p
 
+TEST = True
+
 fuse_date = p.test_fuse_date
 attendees: set[str] = set()
 
@@ -54,18 +56,22 @@ async def main():
     async with aiohttp.ClientSession() as session:
         tasks = []
         for person in attendees:
-            email = f"{person}@cisco.com"
+            if TEST:
+                email = p.test_email
+            else:
+                email = f"{person}@cisco.com"
             payload = {
-                "toPersonEmail": p.test_email,  # email,
+                "toPersonEmail": email,
                 "markdown": "Adaptive card response. Open the message on a supported client to respond.",
-                "attachments": survey_card.survey_card(
-                    p.test_survey_url
-                ),
+                "attachments": survey_card.survey_card(p.test_survey_url),
             }
             tasks.append(send_message(session, email, payload))
 
         await asyncio.gather(*tasks)
 
+
+if TEST:
+    print("Running in test mode")
 
 # add all SEs in the collection to attendees set if they have an "assignments.{fuse_date}" entry
 for se in p.cwa_matches.find({"assignments": {"$exists": True}}):
@@ -73,8 +79,6 @@ for se in p.cwa_matches.find({"assignments": {"$exists": True}}):
         attendees.add(se["SE"])
 
 print(f"Number of attendees: {len(attendees)}")
-
-attendees = p.test_attendees
 
 # Run the main function
 asyncio.run(main())
