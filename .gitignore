@@ -1,0 +1,10 @@
+.mypy_cache
+__pycache__
+.venv
+.vscode
+/CSV/*
+.mypy_cache/*
+utils/preferences.py
+*.csv
+*.xls*
+*.ipynb
