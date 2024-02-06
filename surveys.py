@@ -1,6 +1,8 @@
 import asyncio
+from time import perf_counter, sleep
 
 import aiohttp
+from pymongo.errors import ConnectionFailure
 
 from cards import survey_card  # noqa: F401
 from utils import preferences as p
@@ -16,7 +18,7 @@ retry_delay = 5  # Delay between retries in seconds
 post_msg_url = "https://webexapis.com/v1/messages/"
 
 headers = {
-    "Authorization": p.test_webex_bearer,
+    "Authorization": p.fusebot_help_bearer,
     "Content-Type": "application/json",
 }
 
@@ -70,15 +72,29 @@ async def main():
         await asyncio.gather(*tasks)
 
 
+start_timer = perf_counter()
+
 if TEST:
     print("Running in test mode")
 
 # add all SEs in the collection to attendees set if they have an "assignments.{fuse_date}" entry
-for se in p.cwa_matches.find({"assignments": {"$exists": True}}):
-    if se["assignments"].get(fuse_date):
-        attendees.add(se["SE"])
+for _ in range(5):
+    try:
+        for se in p.cwa_matches.find({"assignments": {"$exists": True}}):
+            if se["assignments"].get(fuse_date):
+                attendees.add(se["SE"])
+        break
+    except ConnectionFailure as e:
+        print(" *** Connect error retrieving SE assignments from MongoDB.")
+        print(f" *** Sleeping for {pow(2, _)} seconds and trying again.")
+        sleep(pow(2, _))
+        print(e)
+print(" *** Failed attempt to connect to matches collection. Mongo is down.")
 
 print(f"Number of attendees: {len(attendees)}")
 
 # Run the main function
 asyncio.run(main())
+
+end_timer = perf_counter()
+print(f"Time taken: {end_timer - start_timer:.2f} seconds")
